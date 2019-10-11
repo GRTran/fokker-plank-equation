@@ -2,7 +2,7 @@ program FokkerPlankSolution
   use ODEsolver
   implicit none
   integer, parameter :: wp = selected_real_kind(8)
-  integer, parameter :: neqn = 10
+  integer, parameter :: neqn = 100
   real(wp), parameter :: pi = 3.1415926535846264338327950228
 
   character(len=15) :: num_nodes
@@ -24,7 +24,7 @@ program FokkerPlankSolution
   integer :: i
 
   region_start = 0._wp
-  region_end = 0.5_wp
+  region_end = 1.0_wp
   radius = 0.4_wp
 
   start_time = 0._wp
@@ -72,16 +72,54 @@ program FokkerPlankSolution
   enddo
   close(565)
   write(num_nodes,*) neqn
-  open(145,file='density_data_'//trim(num_nodes)//'.dat')
+  open(145,file='density_data.dat')
   do i = 1, num_steps
     write(145,*) outputs(:,i) / initial_density
   enddo
   close(145)
-  open(145,file='geometric_data_'//trim(num_nodes)//'.dat')
-  write(145,*) z_coords/(region_end-region_start)
+  open(145,file='geometric_data.dat')
+  write(145,*) z_coords*0.5_wp
   close(145)
 
 contains
+
+  ! develop a static fokker-planck solution utilising a change of variable to represent the system.
+  ! in this case there is no moving boundary, i.e. s(t) = 0.5
+  subroutine grad2(t,y,yp)
+    implicit none
+    real(wp), intent(in) :: t
+    real(wp), intent(inout) :: y(neqn)
+    real(wp) :: yp(neqn)
+    real(wp) :: mu, sigma, st
+    integer :: i
+    real(wp) :: region_start, region_end, delta
+    real(wp) :: bottom_ghost_node, top_ghost_node
+
+    region_start = 0._wp
+    region_end = 1.0_wp
+    delta = (region_end - region_start) / neqn
+
+    mu = 0.001_wp
+    sigma = 0.01_wp
+    st = 0.5_wp
+
+    ! ghost nodes
+    top_ghost_node = ( ((sigma**2/(2._wp*st*delta)) - (mu/2._wp) ) / &
+                     ((sigma**2/(2._wp*st*delta)) + (mu/2._wp) ) ) * y(neqn)
+    ! bottom_ghost_node = - y(1) - (delta*sigma**2/(2._wp*mu))*(top_ghost_node - y(neqn))
+    bottom_ghost_node = ( ( -(mu/2._wp) + (sigma**2/(2._wp*st*delta)) ) / &
+                        ((sigma**2/(2._wp*st*delta)) + (mu/2._wp) ) ) *y(1)
+
+    ! bottom node
+    yp(1) = -(mu/(st*delta))*(y(1)-y(2)) + (sigma**2/(2._wp*st**2*delta**2))*(bottom_ghost_node-2*y(1)+y(2))
+    ! intermediate spatial neqn
+    do i = 2, size(yp) - 1
+        yp(i) = -(mu/(st*delta))*(y(i)-y(i+1)) + (sigma**2/(2._wp*st**2*delta**2))*(y(i-1)-2*y(i)+y(i+1))
+    enddo
+    ! top node
+    yp(neqn) = -(mu/(st*delta))*(y(neqn)-top_ghost_node) + (sigma**2/(2._wp*st**2*delta**2))*(y(neqn-1)-2*y(neqn)+top_ghost_node)
+
+  end subroutine
 
   subroutine grad(t,y,yp)
     implicit none
@@ -115,7 +153,6 @@ contains
     enddo
     ! top node
     yp(neqn) = -(mu/delta)*(y(neqn)-top_ghost_node) + (sigma**2/(2._wp*delta**2))*(y(neqn-1)-2*y(neqn)+top_ghost_node)
-
   end subroutine
 
   ! subroutine analyticalExpression(
