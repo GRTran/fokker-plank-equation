@@ -8,7 +8,7 @@ program FokkerPlankSolution
   character(len=15) :: num_nodes
 
   real(wp), allocatable :: z_coords(:)
-  real(wp), allocatable :: p(:)
+  real(wp), allocatable :: temp(:)
   real(wp), allocatable :: outputs(:,:)
   real(wp) :: delta
   real(wp) :: region_start, region_end, radius, mass_calc, mass_act
@@ -24,17 +24,17 @@ program FokkerPlankSolution
   integer :: i
 
   region_start = 0._wp
-  region_end = 1.0_wp
+  region_end = 50.0_wp
   radius = 0.4_wp
 
   start_time = 0._wp
-  end_time = 500._wp
+  end_time = 1000._wp
   num_steps = 1000
 
   allocate( work( 100+21*neqn ) )
 
   allocate(z_coords(neqn))
-  allocate(p(neqn))
+  allocate(temp(neqn))
   allocate(outputs(neqn,num_steps + 1))
 
   delta = (region_end - region_start) / neqn
@@ -46,27 +46,24 @@ program FokkerPlankSolution
 
   time_step = ( end_time - start_time ) / num_steps
 
-  p = 1._wp/(region_end-region_start)
-  p0 = (1._wp/(region_end-region_start))*sum(p)*delta
-  initial_density = 2400
+  initial_density = 3.
 
   mass_act = initial_density * (region_end-region_start)
 
-  outputs(:,1) = initial_density * (p / p0)
+  outputs(:,1) = initial_density
+  temp = initial_density
 
   open(565,file='time_data.dat')
   time = start_time
   write(565,*) time
   do i = 2, num_steps + 1
     iflag = 1
-    call ode(grad, neqn, p, time, time+time_step,1d-5,1d-5,iflag,work,iwork)
+    call ode(grad2, neqn, temp, time, time+time_step,1d-5,1d-5,iflag,work,iwork)
     if (iflag /= 2) stop 'Error Shamp Gordon Solver not solved'
-    p0 = (1._wp/(region_end-region_start))*sum(p)*delta
-    outputs(:,i) = initial_density * (p / p0)
+    outputs(:,i) = temp
     write(565,*) time
-
     ! check the mass conservation
-    mass_calc = (1._wp/(region_end-region_start))*sum(outputs(:,i)*(delta)) * (region_end-region_start)
+    mass_calc = sum(outputs(:,i)*(delta))
 
     write(*,*) time, mass_calc, mass_act!, (p / p0)
   enddo
@@ -78,7 +75,7 @@ program FokkerPlankSolution
   enddo
   close(145)
   open(145,file='geometric_data.dat')
-  write(145,*) z_coords*0.5_wp
+  write(145,*) z_coords
   close(145)
 
 contains
@@ -90,7 +87,7 @@ contains
     real(wp), intent(in) :: t
     real(wp), intent(inout) :: y(neqn)
     real(wp) :: yp(neqn)
-    real(wp) :: mu, sigma, st
+    real(wp) :: adv, diff, st
     integer :: i
     real(wp) :: region_start, region_end, delta
     real(wp) :: bottom_ghost_node, top_ghost_node
@@ -99,25 +96,26 @@ contains
     region_end = 1.0_wp
     delta = (region_end - region_start) / neqn
 
-    mu = 0.001_wp
-    sigma = 0.01_wp
-    st = 0.5_wp
+    adv = 0.01_wp
+    diff = 1._wp
+    diff = diff
+    st = 50._wp
 
     ! ghost nodes
-    top_ghost_node = ( ((sigma**2/(2._wp*st*delta)) - (mu/2._wp) ) / &
-                     ((sigma**2/(2._wp*st*delta)) + (mu/2._wp) ) ) * y(neqn)
-    ! bottom_ghost_node = - y(1) - (delta*sigma**2/(2._wp*mu))*(top_ghost_node - y(neqn))
-    bottom_ghost_node = ( ( -(mu/2._wp) + (sigma**2/(2._wp*st*delta)) ) / &
-                        ((sigma**2/(2._wp*st*delta)) + (mu/2._wp) ) ) *y(1)
+    top_ghost_node = ( ((diff/(st*delta)) - (adv/2._wp) ) / &
+                     ((diff/(st*delta)) + (adv/2._wp) ) ) * y(neqn)
+    ! bottom_ghost_node = - y(1) - (delta*diff/(2._wp*adv))*(top_ghost_node - y(neqn))
+    bottom_ghost_node = ( ( (diff/(st*delta)) + (adv/2._wp) ) / &
+                        ((diff/(st*delta)) - (adv/2._wp) ) ) *y(1)
 
     ! bottom node
-    yp(1) = -(mu/(st*delta))*(y(1)-y(2)) + (sigma**2/(2._wp*st**2*delta**2))*(bottom_ghost_node-2*y(1)+y(2))
+    yp(1) = -(adv/(st*delta))*(y(1)-y(2)) + (diff/(st**2*delta**2))*(bottom_ghost_node-2._wp*y(1)+y(2))
     ! intermediate spatial neqn
     do i = 2, size(yp) - 1
-        yp(i) = -(mu/(st*delta))*(y(i)-y(i+1)) + (sigma**2/(2._wp*st**2*delta**2))*(y(i-1)-2*y(i)+y(i+1))
+        yp(i) = -(adv/(st*delta))*(y(i)-y(i+1)) + (diff/(st**2*delta**2))*(y(i-1)-2._wp*y(i)+y(i+1))
     enddo
     ! top node
-    yp(neqn) = -(mu/(st*delta))*(y(neqn)-top_ghost_node) + (sigma**2/(2._wp*st**2*delta**2))*(y(neqn-1)-2*y(neqn)+top_ghost_node)
+    yp(neqn) = -(adv/(st*delta))*(y(neqn)-top_ghost_node) + (diff/(st**2*delta**2))*(y(neqn-1)-2._wp*y(neqn)+top_ghost_node)
 
   end subroutine
 
@@ -126,39 +124,41 @@ contains
     real(wp), intent(in) :: t
     real(wp), intent(inout) :: y(neqn)
     real(wp) :: yp(neqn)
-    real(wp) :: mu, sigma
+    real(wp) :: adv, diff
     integer :: i
     real(wp) :: region_start, region_end, delta
     real(wp) :: bottom_ghost_node, top_ghost_node
 
     region_start = 0._wp
-    region_end = 0.5_wp
+    region_end = 50.0_wp
     delta = (region_end - region_start) / neqn
 
-    mu = 0.001_wp
-    sigma = 0.01_wp
+    adv = 0.01_wp
+    diff = 1._wp
 
     ! ghost nodes
-    top_ghost_node = ( ((sigma**2/(2._wp*delta)) - (mu/2._wp) ) / &
-                     ((sigma**2/(2._wp*delta)) + (mu/2._wp) ) ) * y(neqn)
-    ! bottom_ghost_node = - y(1) - (delta*sigma**2/(2._wp*mu))*(top_ghost_node - y(neqn))
-    bottom_ghost_node = ( ( -(mu/2._wp) + (sigma**2/(2._wp*delta)) ) / &
-                        ((sigma**2/(2._wp*delta)) + (mu/2._wp) ) ) *y(1)
+    top_ghost_node = ( ((diff/(delta)) - (adv/2._wp) ) / &
+                     ((diff/(delta)) + (adv/2._wp) ) ) * y(neqn)
+    ! bottom_ghost_node = - y(1) - (delta*diff/(2._wp*adv))*(top_ghost_node - y(neqn))
+    bottom_ghost_node = ( ( (adv/2._wp) + (diff/(delta)) ) / &
+                        ((diff/(delta)) - (adv/2._wp) ) ) *y(1)
 
     ! bottom node
-    yp(1) = -(mu/delta)*(y(1)-y(2)) + (sigma**2/(2._wp*delta**2))*(bottom_ghost_node-2*y(1)+y(2))
+    yp(1) = -(adv/delta)*(y(1)-y(2)) + (diff/(delta**2))*(bottom_ghost_node-2._wp*y(1)+y(2))
     ! intermediate spatial neqn
     do i = 2, size(yp) - 1
-        yp(i) = -(mu/delta)*(y(i)-y(i+1)) + (sigma**2/(2._wp*delta**2))*(y(i-1)-2*y(i)+y(i+1))
+        yp(i) = -(adv/delta)*(y(i)-y(i+1)) + (diff/(delta**2))*(y(i-1)-2._wp*y(i)+y(i+1))
     enddo
     ! top node
-    yp(neqn) = -(mu/delta)*(y(neqn)-top_ghost_node) + (sigma**2/(2._wp*delta**2))*(y(neqn-1)-2*y(neqn)+top_ghost_node)
+    yp(neqn) = -(adv/delta)*(y(neqn)-top_ghost_node) + (diff/(delta**2))*(y(neqn-1)-2._wp*y(neqn)+top_ghost_node)
+
+    ! write(*,*) yp
   end subroutine
 
   ! subroutine analyticalExpression(
   !
-  !   alpha = (2._wp*mu)/sigma**2
-  !   beta = (2._wp*lambda)/sigma**2
+  !   alpha = (2._wp*adv)/diff
+  !   beta = (2._wp*lambda)/diff
   !   w = sqrt(beta-alpha**2/4)
   !   omega = w*(region_end-region_start)
 
