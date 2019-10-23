@@ -2,7 +2,7 @@ program FokkerPlankSolution
   use ODEsolver
   implicit none
   integer, parameter :: wp = selected_real_kind(8)
-  integer, parameter :: neqn = 10
+  integer, parameter :: neqn = 100
   real(wp), parameter :: pi = 3.1415926535846264338327950228
 
   character(len=15) :: num_nodes

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 def PlotSlumping():
     print('hi you there, im plotting')
-    data2 = np.loadtxt('time_data.dat')
+    data2 = np.loadtxt('Output_Data/time_data.dat')
     #data3 = np.loadtxt('geometric_data.dat')
     #data = np.loadtxt('density_data.dat')
     #print(data)
@@ -12,8 +12,8 @@ def PlotSlumping():
     multiple_data = ['10','100','500','1000']
     
     for i in multiple_data:
-        data3 = np.loadtxt('geometric_data_'+i+'.dat')
-        data = np.loadtxt('density_data_'+i+'.dat')
+        data3 = np.loadtxt('Output_Data/geometric_data_'+i+'.dat')
+        data = np.loadtxt('Output_Data/density_data_'+i+'.dat')
         plt.plot(data3,data[-1],label=i)
     
     plt.legend(title='Spatial Nodes')
@@ -26,8 +26,8 @@ def PlotSlumping():
 def PlotSlump():
     print('hi you there, im plotting')
     data2 = np.loadtxt('time_data.dat')
-    data3 = np.loadtxt('geometric_data.dat')
-    data = np.loadtxt('density_data.dat')
+    data3 = np.loadtxt('geometric_data_100.dat')
+    data = np.loadtxt('density_data_100.dat')
 
     for i in range(0,len(data),100):
         plt.plot(data3,data[i],label=data2[i])
@@ -40,5 +40,5 @@ def PlotSlump():
     plt.savefig('slumping_plot_progression.png')
 
 
-PlotSlumping()
+PlotSlump()
 
