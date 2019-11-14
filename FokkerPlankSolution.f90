@@ -58,7 +58,7 @@ program FokkerPlankSolution
   write(565,*) time
   do i = 2, num_steps + 1
     iflag = 1
-    call ode(grad2, neqn, temp, time, time+time_step,1d-5,1d-5,iflag,work,iwork)
+    call ode(grad, neqn, temp, time, time+time_step,1d-5,1d-5,iflag,work,iwork)
     if (iflag /= 2) stop 'Error Shamp Gordon Solver not solved'
     outputs(:,i) = temp
     write(565,*) time
