@@ -36,8 +36,8 @@ def PlotSlump():
     plt.title('Progression of slump through time')
     plt.xlabel('Relative height up cylinder from bottom (x/a)')
     plt.ylabel(r'Relative density change ($\rho/\rho_{0}$)')
-    #plt.show()
-    plt.savefig('slumping_plot_progression.png')
+    plt.show()
+    #plt.savefig('slumping_plot_progression.png')
 
 
 PlotSlump()
