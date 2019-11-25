@@ -4,7 +4,13 @@ CC=mpicc
 LD=gfortran
 
 #Set the objects
-OBJS=			    			ODEsolver.o FokkerPlankSolution.o
+OBJS=			    			VarPrecision.o \
+										odepack/odepack_sub1.o \
+									  odepack/odepack_sub2.o \
+										odepack/odepack.o \
+										ODEsolver.o \
+										FiniteVolume1D.o \
+										FokkerPlankSolution.o
 
 #Set up the MODS so it contains the same as OBJS but with the .o replaced by .mod
 MODS= $(OBJS:.o=.mod)
